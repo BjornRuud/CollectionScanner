@@ -39,4 +39,70 @@ final class CollectionScannerTests: XCTestCase {
         XCTAssertEqual(scanner.currentIndex, scanner.collection.endIndex)
         XCTAssertNil(scanner.scan())
     }
+
+    func testScanElement() throws {
+        let scanner = CollectionScanner("abc")
+        var index = scanner.currentIndex
+        XCTAssertTrue(scanner.scan("a"))
+        index = scanner.collection.index(after: index)
+        XCTAssertEqual(index, scanner.currentIndex)
+        XCTAssertFalse(scanner.scan("d"))
+        XCTAssertEqual(index, scanner.currentIndex)
+        XCTAssertTrue(scanner.scan("b"))
+        index = scanner.collection.index(after: index)
+        XCTAssertEqual(index, scanner.currentIndex)
+        XCTAssertTrue(scanner.scan("c"))
+        XCTAssertEqual(scanner.currentIndex, scanner.collection.endIndex)
+        XCTAssertFalse(scanner.scan("c"))
+    }
+
+    func testScanCollection() throws {
+        let scanner = CollectionScanner("abc")
+        let other = "bc"
+        XCTAssertFalse(scanner.scan(other))
+        XCTAssertEqual(scanner.currentIndex, scanner.collection.startIndex)
+        XCTAssertTrue(scanner.scan("a"))
+        XCTAssertTrue(scanner.scan(other))
+        XCTAssertEqual(scanner.currentIndex, scanner.collection.endIndex)
+    }
+
+    func testScanCollectionOutOfBounds() throws {
+        let scanner = CollectionScanner("abc")
+        let other = "bcd"
+        XCTAssertFalse(scanner.scan(other))
+        XCTAssertEqual(scanner.currentIndex, scanner.collection.startIndex)
+        XCTAssertTrue(scanner.scan("a"))
+        XCTAssertFalse(scanner.scan(other))
+        XCTAssertEqual(scanner.currentIndex, scanner.collection.index(after: scanner.collection.startIndex))
+    }
+
+    func testScanUpToElement() throws {
+        let scanner = CollectionScanner("abc")
+        var prefix = scanner.scanUpTo("a")
+        XCTAssertEqual(prefix, "")
+        XCTAssertEqual(scanner.currentIndex, scanner.collection.startIndex)
+        prefix = scanner.scanUpTo("c")
+        XCTAssertEqual(prefix, "ab")
+        let afterPrefixIndex = scanner.collection.index(scanner.collection.startIndex, offsetBy: 2)
+        XCTAssertEqual(afterPrefixIndex, scanner.currentIndex)
+        scanner.currentIndex = scanner.collection.startIndex
+        prefix = scanner.scanUpTo("d")
+        XCTAssertEqual(prefix, "abc")
+        XCTAssertEqual(scanner.currentIndex, scanner.collection.endIndex)
+    }
+
+    func testScanUpToCollection() throws {
+        let scanner = CollectionScanner("abcd")
+        var prefix = scanner.scanUpTo("abc")
+        XCTAssertEqual(prefix, "")
+        XCTAssertEqual(scanner.currentIndex, scanner.collection.startIndex)
+        prefix = scanner.scanUpTo("bc")
+        XCTAssertEqual(prefix, "a")
+        let afterPrefixIndex = scanner.collection.index(after: scanner.collection.startIndex)
+        XCTAssertEqual(afterPrefixIndex, scanner.currentIndex)
+        scanner.currentIndex = scanner.collection.startIndex
+        prefix = scanner.scanUpTo("cde")
+        XCTAssertEqual(prefix, "abcd")
+        XCTAssertEqual(scanner.currentIndex, scanner.collection.endIndex)
+    }
 }

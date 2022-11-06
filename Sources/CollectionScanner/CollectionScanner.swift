@@ -104,9 +104,8 @@ where CollectionType: Collection, CollectionType.Element: Equatable {
             if scan(otherCollection) {
                 currentIndex = matchIndex
                 break
-            } else {
-                advanceCurrentIndex()
             }
+            advanceCurrentIndex()
         }
         return collection[startIndex..<currentIndex]
     }

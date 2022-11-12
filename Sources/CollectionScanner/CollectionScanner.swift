@@ -39,14 +39,20 @@ where CollectionType: Collection, CollectionType.Element: Equatable {
         currentIndex = updatedIndex
     }
 
-    public func peek(offset: Int = 0) -> Element? {
-        if isAtEnd { return nil }
-        var index = currentIndex
-        for _ in 0..<offset {
-            index = collection.index(after: index)
-            if index == collection.endIndex { return nil }
+    public func peek() -> Element? {
+        return currentElement
+    }
+
+    public func peek(offset: Int) -> Element? {
+        guard let peekIndex = collection.index(
+            currentIndex,
+            offsetBy: offset,
+            limitedBy: collection.endIndex
+        ) else { return nil }
+        if peekIndex < collection.endIndex {
+            return collection[peekIndex]
         }
-        return collection[index]
+        return nil
     }
 
     public func scan() -> Element? {
@@ -65,7 +71,7 @@ where CollectionType: Collection, CollectionType.Element: Equatable {
         return true
     }
 
-    public func scan<OtherCollection>(_ otherCollection: OtherCollection) -> Bool
+    public func scan<OtherCollection>(collection otherCollection: OtherCollection) -> Bool
     where OtherCollection: Collection, OtherCollection.Element == Element {
         if isAtEnd || otherCollection.isEmpty { return false }
         let startIndex = currentIndex
@@ -90,7 +96,7 @@ where CollectionType: Collection, CollectionType.Element: Equatable {
         return collection[startIndex..<currentIndex]
     }
 
-    public func scanUpTo<OtherCollection>(_ otherCollection: OtherCollection) -> CollectionType.SubSequence?
+    public func scanUpTo<OtherCollection>(collection otherCollection: OtherCollection) -> CollectionType.SubSequence?
     where OtherCollection: Collection, OtherCollection.Element == Element {
         guard
             !isAtEnd,
@@ -98,13 +104,34 @@ where CollectionType: Collection, CollectionType.Element: Equatable {
         else { return nil }
         let startIndex = currentIndex
         while !isAtEnd {
-            guard let _ = scanUpTo(firstElement) else { continue }
+            guard scanUpTo(firstElement) != nil else { continue }
             // Possible match
             let matchIndex = currentIndex
-            if scan(otherCollection) {
+            if scan(collection: otherCollection) {
                 currentIndex = matchIndex
                 break
             }
+            advanceCurrentIndex()
+        }
+        return collection[startIndex..<currentIndex]
+    }
+
+    public func scan<ElementSet>(set elementSet: ElementSet) -> Element?
+    where ElementSet: SetAlgebra, ElementSet.Element == Element {
+        guard
+            let element = peek(),
+            elementSet.contains(element)
+        else { return nil }
+        advanceCurrentIndex()
+        return element
+    }
+
+    public func scanUpTo<ElementSet>(set elementSet: ElementSet) -> CollectionType.SubSequence?
+    where ElementSet: SetAlgebra, ElementSet.Element == Element {
+        if isAtEnd { return nil }
+        let startIndex = currentIndex
+        while let element = peek() {
+            if elementSet.contains(element) { break }
             advanceCurrentIndex()
         }
         return collection[startIndex..<currentIndex]

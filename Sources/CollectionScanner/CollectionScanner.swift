@@ -27,7 +27,12 @@ where CollectionType: Collection, CollectionType.Element: Equatable {
         self.currentIndex = collection.startIndex
     }
 
-    public func advanceCurrentIndex(by count: Int = 1) {
+    public func advanceCurrentIndex() {
+        if isAtEnd { return }
+        currentIndex = collection.index(after: currentIndex)
+    }
+
+    public func advanceCurrentIndex(by count: Int) {
         guard let updatedIndex = collection.index(
             currentIndex,
             offsetBy: count,
@@ -56,8 +61,7 @@ where CollectionType: Collection, CollectionType.Element: Equatable {
     }
 
     public func scan() -> Element? {
-        if isAtEnd { return nil }
-        let element = collection[currentIndex]
+        let element = currentElement
         advanceCurrentIndex()
         return element
     }

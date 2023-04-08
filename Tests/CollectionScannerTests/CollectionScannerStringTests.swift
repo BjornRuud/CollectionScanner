@@ -1,7 +1,7 @@
 import XCTest
 @testable import CollectionScanner
 
-final class CollectionScannerTests: XCTestCase {
+final class CollectionScannerStringTests: XCTestCase {
     func testAdvanceCurrentIndex() throws {
         let scanner = CollectionScanner("a")
         XCTAssertEqual(scanner.currentIndex, scanner.collection.startIndex)

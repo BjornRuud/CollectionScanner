@@ -1,4 +1,4 @@
-# CollectionReader
+# CollectionScanner
 
 A reader to scan for elements and collections of elements in any type conforming to the `Collection` protocol. It comes with functions suitable for building parsers by hand.
 
@@ -7,7 +7,7 @@ A reader to scan for elements and collections of elements in any type conforming
 
 ### Swift Package Manager
 
-Add the CollectionReader repo as a dependency to your `Package.swift` file and import `CollectionReader` in your source files.
+Add the CollectionScanner repo as a dependency to your `Package.swift` file and import `CollectionScanner` in your source files.
 
 
 ## Usage
@@ -15,7 +15,7 @@ Add the CollectionReader repo as a dependency to your `Package.swift` file and i
 Scan for a character in a `String`:
 
 ```swift
-let scanner = CollectionReader("abc")
+let scanner = CollectionScanner("abc")
 
 // Current index is at 'a'
 if scanner.scan("b") {
@@ -39,7 +39,7 @@ Here is a simple example that demonstrates finding the start of a tag and then r
 ```swift
 // Parse a string to find a simple XML tag
 let xmlString = "this is <demo> a tag"
-let scanner = CollectionReader(xmlString)
+let scanner = CollectionScanner(xmlString)
 let beforeTag = scanner.scanUpTo("<")
 // beforeTag is now "this is " and index is at "<"
 scanner.advanceIndex()

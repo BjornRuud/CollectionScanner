@@ -11,16 +11,9 @@ where CollectionType: Collection, CollectionType.Element: Equatable {
         return collection[currentIndex]
     }
 
-    /// The current index to be scanned in the collection. If reached end
-    /// of the collection, or an index higher than the end index is set
-    /// manually, the index will be `collection.endIndex`.
-    public var currentIndex: Index {
-        didSet {
-            if currentIndex > collection.endIndex {
-                currentIndex = collection.endIndex
-            }
-        }
-    }
+    /// The current index to be scanned in the collection. It is will be
+    /// in the range startIndex...endIndex.
+    public private(set) var currentIndex: Index
 
     /// Returns `true` if reached end of collection, else `false`.
     public var isAtEnd: Bool {
@@ -38,7 +31,7 @@ where CollectionType: Collection, CollectionType.Element: Equatable {
     }
 
     /// Advance current index to the index after it.
-    public func advanceCurrentIndex() {
+    public func advanceIndex() {
         if isAtEnd { return }
         currentIndex = collection.index(after: currentIndex)
     }
@@ -48,7 +41,7 @@ where CollectionType: Collection, CollectionType.Element: Equatable {
 
      - Parameter count: The number of positions to advance the current index.
     */
-    public func advanceCurrentIndex(by count: Int) {
+    public func advanceIndex(by count: Int) {
         guard let updatedIndex = collection.index(
             currentIndex,
             offsetBy: count,
@@ -58,6 +51,18 @@ where CollectionType: Collection, CollectionType.Element: Equatable {
             return
         }
         currentIndex = updatedIndex
+    }
+
+    /**
+     Move current index to specific index. The index will not go beyond the
+     range `collection.startIndex...collection.endIndex`.
+
+     - Parameter index: The index to set the current index to.
+    */
+    public func setIndex(_ index: Index) {
+        var actualIndex = max(index, collection.startIndex)
+        actualIndex = min(actualIndex, collection.endIndex)
+        currentIndex = actualIndex
     }
 
     /**
@@ -96,7 +101,7 @@ where CollectionType: Collection, CollectionType.Element: Equatable {
      */
     public func scan() -> Element? {
         let element = currentElement
-        advanceCurrentIndex()
+        advanceIndex()
         return element
     }
 
@@ -112,7 +117,7 @@ where CollectionType: Collection, CollectionType.Element: Equatable {
             let nextElement = peek(),
             nextElement == element
         else { return false }
-        advanceCurrentIndex()
+        advanceIndex()
         return true
     }
 
@@ -155,7 +160,7 @@ where CollectionType: Collection, CollectionType.Element: Equatable {
         if isAtEnd { return nil }
         let startIndex = currentIndex
         while let nextElement = peek(), nextElement != element {
-            advanceCurrentIndex()
+            advanceIndex()
         }
         return collection[startIndex..<currentIndex]
     }
@@ -186,7 +191,7 @@ where CollectionType: Collection, CollectionType.Element: Equatable {
                 currentIndex = matchIndex
                 break
             }
-            advanceCurrentIndex()
+            advanceIndex()
         }
         return collection[startIndex..<currentIndex]
     }
@@ -204,7 +209,7 @@ where CollectionType: Collection, CollectionType.Element: Equatable {
             let element = peek(),
             elementSet.contains(element)
         else { return nil }
-        advanceCurrentIndex()
+        advanceIndex()
         return element
     }
 
@@ -224,7 +229,7 @@ where CollectionType: Collection, CollectionType.Element: Equatable {
         let startIndex = currentIndex
         while let element = peek() {
             if elementSet.contains(element) { break }
-            advanceCurrentIndex()
+            advanceIndex()
         }
         return collection[startIndex..<currentIndex]
     }

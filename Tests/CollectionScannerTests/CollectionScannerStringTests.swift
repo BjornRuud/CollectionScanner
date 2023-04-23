@@ -5,19 +5,19 @@ final class CollectionScannerStringTests: XCTestCase {
     func testAdvanceCurrentIndex() throws {
         let scanner = CollectionScanner("a")
         XCTAssertEqual(scanner.currentIndex, scanner.collection.startIndex)
-        scanner.advanceCurrentIndex()
+        scanner.advanceIndex()
         XCTAssertEqual(scanner.currentIndex, scanner.collection.endIndex)
-        scanner.advanceCurrentIndex()
+        scanner.advanceIndex()
         XCTAssertEqual(scanner.currentIndex, scanner.collection.endIndex)
     }
 
     func testAdvanceCurrentIndexBy() throws {
         let scanner = CollectionScanner("abc")
         XCTAssertEqual(scanner.currentIndex, scanner.collection.startIndex)
-        scanner.advanceCurrentIndex(by: 2)
+        scanner.advanceIndex(by: 2)
         XCTAssertEqual(scanner.currentElement, "c")
-        scanner.currentIndex = scanner.collection.startIndex
-        scanner.advanceCurrentIndex(by: 3)
+        scanner.setIndex(scanner.collection.startIndex)
+        scanner.advanceIndex(by: 3)
         XCTAssertEqual(scanner.currentIndex, scanner.collection.endIndex)
     }
 
@@ -85,7 +85,7 @@ final class CollectionScannerStringTests: XCTestCase {
         XCTAssertEqual(prefix, "ab")
         let afterPrefixIndex = scanner.collection.index(scanner.collection.startIndex, offsetBy: 2)
         XCTAssertEqual(afterPrefixIndex, scanner.currentIndex)
-        scanner.currentIndex = scanner.collection.startIndex
+        scanner.setIndex(scanner.collection.startIndex)
         prefix = scanner.scanUpTo("d")
         XCTAssertEqual(prefix, "abc")
         XCTAssertEqual(scanner.currentIndex, scanner.collection.endIndex)
@@ -100,7 +100,7 @@ final class CollectionScannerStringTests: XCTestCase {
         XCTAssertEqual(prefix, "a")
         let afterPrefixIndex = scanner.collection.index(after: scanner.collection.startIndex)
         XCTAssertEqual(afterPrefixIndex, scanner.currentIndex)
-        scanner.currentIndex = scanner.collection.startIndex
+        scanner.setIndex(scanner.collection.startIndex)
         prefix = scanner.scanUpTo(collection: "cde")
         XCTAssertEqual(prefix, "abcd")
         XCTAssertEqual(scanner.currentIndex, scanner.collection.endIndex)
@@ -125,7 +125,7 @@ final class CollectionScannerStringTests: XCTestCase {
         let characters = Set<Character>(["c", "d"])
         XCTAssertEqual(scanner.scanUpTo(set: characters), "ab")
         XCTAssertEqual(scanner.currentElement, "d")
-        scanner.advanceCurrentIndex()
+        scanner.advanceIndex()
         XCTAssertEqual(scanner.scanUpTo(set: characters), "")
         XCTAssertEqual(scanner.currentElement, "c")
     }

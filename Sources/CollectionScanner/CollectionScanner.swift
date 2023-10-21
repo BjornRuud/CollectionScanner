@@ -2,17 +2,16 @@ open class CollectionScanner<CollectionType>
 where CollectionType: Collection, CollectionType.Element: Equatable {
     public typealias Element = CollectionType.Element
     public typealias Index = CollectionType.Index
+    public typealias SubSequence = CollectionType.SubSequence
 
     public let collection: CollectionType
 
     /// The element at the current index, or `nil` if reached end of collection.
     public var currentElement: Element? {
-        if isAtEnd { return nil }
-        return collection[currentIndex]
+        isAtEnd ? nil : collection[currentIndex]
     }
 
-    /// The current index to be scanned in the collection. It is will be
-    /// in the range startIndex...endIndex.
+    /// The current index in the collection. It will be in the range startIndex...endIndex.
     public private(set) var currentIndex: Index
 
     /// Returns `true` if reached end of collection, else `false`.
@@ -20,68 +19,80 @@ where CollectionType: Collection, CollectionType.Element: Equatable {
         return currentIndex == collection.endIndex
     }
 
-    /**
-     Initialize the scanner with any collection type.
-
-     - Parameter collection: A type that conforms to the `Collection` protocol.
-    */
     public init(_ collection: CollectionType) {
         self.collection = collection
         self.currentIndex = collection.startIndex
     }
 
-    /// Advance current index to the index after it.
-    public func advanceIndex() {
-        if isAtEnd { return }
-        currentIndex = collection.index(after: currentIndex)
+    /// Move current index to specific index. The index will not go beyond the
+    /// range `collection.startIndex...collection.endIndex`.
+    public func setIndex(_ index: Index) {
+        let clampedIndex = min(max(index, collection.startIndex), collection.endIndex)
+        currentIndex = clampedIndex
     }
 
-    /**
-     Advance current index N positions. The index will not go beyond `collection.endIndex`.
-
-     - Parameter count: The number of positions to advance the current index.
-    */
-    public func advanceIndex(by count: Int) {
-        guard let updatedIndex = collection.index(
+    /// Skip `count` elements, limited by the end of the collection.
+    public func skip(_ count: Int = 1) {
+        currentIndex = collection.index(
             currentIndex,
             offsetBy: count,
             limitedBy: collection.endIndex
-        ) else {
-            currentIndex = collection.endIndex
-            return
+        ) ?? collection.endIndex
+    }
+
+    /// Skip elements while the predicate is true.
+    public func skip(while predicate: (Element) -> Bool) {
+        while let element = currentElement, predicate(element) {
+            currentIndex = collection.index(after: currentIndex)
         }
-        currentIndex = updatedIndex
     }
 
-    /**
-     Move current index to specific index. The index will not go beyond the
-     range `collection.startIndex...collection.endIndex`.
-
-     - Parameter index: The index to set the current index to.
-    */
-    public func setIndex(_ index: Index) {
-        var actualIndex = max(index, collection.startIndex)
-        actualIndex = min(actualIndex, collection.endIndex)
-        currentIndex = actualIndex
+    /// Skip elements equal to elements in a collection, and in the same order as
+    /// the collection.
+    public func skip<OtherCollection>(collection otherCollection: OtherCollection)
+    where OtherCollection: Collection, OtherCollection.Element == Element {
+        if isAtEnd || otherCollection.isEmpty { return }
+        let startIndex = currentIndex
+        guard let endIndex = collection.index(
+            startIndex,
+            offsetBy: otherCollection.count,
+            limitedBy: collection.endIndex
+        ) else { return }
+        for (element, otherElement) in zip(collection[startIndex..<endIndex], otherCollection) {
+            guard element == otherElement else { return }
+        }
+        currentIndex = endIndex
+        return
     }
 
-    /**
-     Peek at the current element without advancing the index.
+    /// Skip elements through an element.
+    public func skip(through element: Element) {
+        skip(upTo: element)
+        skip()
+    }
 
-     - Returns: The element at the current index, or `nil` if reached end of collection.
-     */
+    /// Skip elements up to an element.
+    public func skip(upTo element: Element) {
+        skip { $0 != element }
+    }
+
+    /// Peek at the current element without advancing the index.
     public func peek() -> Element? {
         return currentElement
     }
 
-    /**
-     Peek at the element at `currentIndex + offset` without advancing the index.
+    /// Peek at the next `maxLength` elements.
+    public func peek(next maxLength: Int) -> SubSequence {
+        let startIndex = currentIndex
+        let endIndex = collection.index(
+            startIndex,
+            offsetBy: maxLength,
+            limitedBy: collection.endIndex
+        ) ?? collection.endIndex
+        return collection[startIndex..<endIndex]
+    }
 
-     - Parameter offset: The nummer of positions to look ahead.
-
-     - Returns: The element at the offset index, or nil if offset index
-                is at or beyond end of collection.
-     */
+    /// Peek at the element `offset` positions ahead.
     public func peek(offset: Int) -> Element? {
         guard let peekIndex = collection.index(
             currentIndex,
@@ -94,142 +105,61 @@ where CollectionType: Collection, CollectionType.Element: Equatable {
         return nil
     }
 
-    /**
-     Scan the element at the current index and advance the index.
-
-     - Returns: The scanned element or nil if reached end of collection.
-     */
-    public func scan() -> Element? {
-        let element = currentElement
-        advanceIndex()
-        return element
+    /// Remove and return the current element.
+    public func removeFirst() -> Element? {
+        defer { skip() }
+        return currentElement
     }
 
-    /**
-     Scan for a specific element and advance the index if found.
-
-     - Parameter element: The element to scan for.
-
-     - Returns: True if element was found, otherwise false.
-     */
-    public func scan(_ element: Element) -> Bool {
-        guard
-            let nextElement = peek(),
-            nextElement == element
-        else { return false }
-        advanceIndex()
-        return true
-    }
-
-    /**
-     Scan for a sequence of elements matching some collection with the same element type.
-     If a match is found the current index is advanced to the end of the match.
-
-     - Parameter collection: The sequnce of elements to look for.
-
-     - Returns: True if sequence was found, false otherwise
-     */
-    public func scan<OtherCollection>(collection otherCollection: OtherCollection) -> Bool
-    where OtherCollection: Collection, OtherCollection.Element == Element {
-        if isAtEnd || otherCollection.isEmpty { return false }
+    /// Remove and return `maxLength` number of elements.
+    public func prefix(_ maxLength: Int) -> SubSequence {
         let startIndex = currentIndex
-        guard let endIndex = collection.index(
-            startIndex,
-            offsetBy: otherCollection.count,
-            limitedBy: collection.endIndex
-        ) else { return false }
-        for (element, otherElement) in zip(collection[startIndex..<endIndex], otherCollection) {
-            guard element == otherElement else { return false }
-        }
-        currentIndex = endIndex
-        return true
-    }
-
-    /**
-     Scan up to a specific element.
-
-     - Parameter element: The element to scan up to.
-
-     - Returns: If element was found returns a subsequence from the index where scan
-                started up to the index of the element. Since the scan starts at the
-                current index this means an empty subsequence is returned if the element
-                to scan for is the current element. If end of collection is reached
-                returns nil.
-     */
-    public func scanUpTo(_ element: Element) -> CollectionType.SubSequence? {
-        if isAtEnd { return nil }
-        let startIndex = currentIndex
-        while let nextElement = peek(), nextElement != element {
-            advanceIndex()
-        }
+        skip(maxLength)
         return collection[startIndex..<currentIndex]
     }
 
-    /**
-     Scan up to a sequence of elements.
-
-     - Parameter collection: The element sequence to scan up to.
-
-     - Returns: If the sequence was found returns a subsequence from the index where scan
-                started up to the index of the start of the sequence. Since the scan starts
-                at the current index this means an empty subsequence is returned if the
-                first element of the sequence to scan for is the current element. If end
-                of collection is reached returns nil.
-     */
-    public func scanUpTo<OtherCollection>(collection otherCollection: OtherCollection) -> CollectionType.SubSequence?
-    where OtherCollection: Collection, OtherCollection.Element == Element {
-        guard
-            !isAtEnd,
-            let firstElement = otherCollection.first
-        else { return nil }
+    /// Remove and return a sequence of elements up until the predicate is false.
+    public func prefix(while predicate: (Element) -> Bool) -> SubSequence {
         let startIndex = currentIndex
+        skip(while: predicate)
+        return collection[startIndex..<currentIndex]
+    }
+
+    /// Remove and return a sequence from the current element through `element`.
+    public func prefix(through element: Element) -> SubSequence {
+        let startIndex = currentIndex
+        skip(through: element)
+        return collection[startIndex..<currentIndex]
+    }
+
+    /// Remove and return a sequence from the current element up to `element`.
+    public func prefix(upTo element: Element) -> SubSequence {
+        let startIndex = currentIndex
+        skip(upTo: element)
+        return collection[startIndex..<currentIndex]
+    }
+
+    /// Remove and return a sequence from the current element up to the start of the
+    /// provided collection.
+    public func prefix<OtherCollection>(upToCollection otherCollection: OtherCollection) -> SubSequence
+    where OtherCollection: Collection, OtherCollection.Element == Element {
+        let startIndex = currentIndex
+        guard let firstElement = otherCollection.first
+        else { return collection[startIndex..<startIndex] }
         while !isAtEnd {
-            guard scanUpTo(firstElement) != nil else { continue }
+            skip { $0 != firstElement }
             // Possible match
-            let matchIndex = currentIndex
-            if scan(collection: otherCollection) {
-                currentIndex = matchIndex
+            let matchCollection = peek(next: otherCollection.count)
+            guard matchCollection.count == otherCollection.count else {
+                // No match before end
+                currentIndex = collection.endIndex
                 break
             }
-            advanceIndex()
-        }
-        return collection[startIndex..<currentIndex]
-    }
-
-    /**
-     Scan any element from a set, and advance the index if an element was found.
-
-     - Parameter elementSet: The set of elements to scan for.
-
-     - Returns: The element that was matched in the set, or nil if not found.
-     */
-    public func scan<ElementSet>(set elementSet: ElementSet) -> Element?
-    where ElementSet: SetAlgebra, ElementSet.Element == Element {
-        guard
-            let element = peek(),
-            elementSet.contains(element)
-        else { return nil }
-        advanceIndex()
-        return element
-    }
-
-    /**
-     Scan up to any element from a set. The index will be advanced to the match index.
-
-     - Parameter elementSet: The set of elements to scan up to.
-
-     - Returns: A subsequence from the start index of the scan to the current index.
-                If no match is found the subsequence is from the start index of the
-                scan to the end of the collection. Returns nil if the scan is started
-                at the end of the collection.
-     */
-    public func scanUpTo<ElementSet>(set elementSet: ElementSet) -> CollectionType.SubSequence?
-    where ElementSet: SetAlgebra, ElementSet.Element == Element {
-        if isAtEnd { return nil }
-        let startIndex = currentIndex
-        while let element = peek() {
-            if elementSet.contains(element) { break }
-            advanceIndex()
+            let matchZip = zip(matchCollection, otherCollection)
+            if matchZip.allSatisfy({ $0 == $1 }) {
+                break
+            }
+            skip()
         }
         return collection[startIndex..<currentIndex]
     }

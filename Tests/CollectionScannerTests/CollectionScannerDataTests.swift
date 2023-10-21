@@ -6,9 +6,9 @@ final class CollectionScannerDataTests: XCTestCase {
 
     func testDataCollection() throws {
         let scanner = CollectionScanner(data)
-        XCTAssertEqual(scanner.scan(), 1)
-        XCTAssertTrue(scanner.scan(2))
-        XCTAssertTrue(scanner.scan(3))
-        XCTAssertEqual(scanner.currentIndex, scanner.collection.endIndex)
+        scanner.skip { $0 == 2 }
+        XCTAssertEqual(scanner.currentElement, 1)
+        scanner.skip(2)
+        XCTAssertEqual(scanner.currentElement, 3)
     }
 }

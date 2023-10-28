@@ -30,58 +30,17 @@ where CollectionType: Collection, CollectionType.Element: Equatable {
         let clampedIndex = min(max(index, collection.startIndex), collection.endIndex)
         currentIndex = clampedIndex
     }
+}
 
-    /// Skip `count` elements, limited by the end of the collection.
-    public func skip(_ count: Int = 1) {
-        currentIndex = collection.index(
-            currentIndex,
-            offsetBy: count,
-            limitedBy: collection.endIndex
-        ) ?? collection.endIndex
-    }
+// MARK: - Peek
 
-    /// Skip elements while the predicate is true.
-    public func skip(while predicate: (Element) -> Bool) {
-        while let element = currentElement, predicate(element) {
-            currentIndex = collection.index(after: currentIndex)
-        }
-    }
-
-    /// Skip elements equal to elements in a collection, and in the same order as
-    /// the collection.
-    public func skip<OtherCollection>(collection otherCollection: OtherCollection)
-    where OtherCollection: Collection, OtherCollection.Element == Element {
-        if isAtEnd || otherCollection.isEmpty { return }
-        let startIndex = currentIndex
-        guard let endIndex = collection.index(
-            startIndex,
-            offsetBy: otherCollection.count,
-            limitedBy: collection.endIndex
-        ) else { return }
-        for (element, otherElement) in zip(collection[startIndex..<endIndex], otherCollection) {
-            guard element == otherElement else { return }
-        }
-        currentIndex = endIndex
-        return
-    }
-
-    /// Skip elements through an element.
-    public func skip(through element: Element) {
-        skip(upTo: element)
-        skip()
-    }
-
-    /// Skip elements up to an element.
-    public func skip(upTo element: Element) {
-        skip { $0 != element }
-    }
-
+extension CollectionScanner {
     /// Peek at the current element without advancing the index.
     public func peek() -> Element? {
         return currentElement
     }
 
-    /// Peek at the next `maxLength` elements.
+    /// Peek at the next `maxLength` elements without advancing the index.
     public func peek(next maxLength: Int) -> SubSequence {
         let startIndex = currentIndex
         let endIndex = collection.index(
@@ -92,75 +51,148 @@ where CollectionType: Collection, CollectionType.Element: Equatable {
         return collection[startIndex..<endIndex]
     }
 
-    /// Peek at the element `offset` positions ahead.
+    /// Peek at the element `offset` positions ahead without advancing the index.
     public func peek(offset: Int) -> Element? {
-        guard let peekIndex = collection.index(
-            currentIndex,
-            offsetBy: offset,
-            limitedBy: collection.endIndex
-        ) else { return nil }
-        if peekIndex < collection.endIndex {
-            return collection[peekIndex]
-        }
-        return nil
+        guard
+            let peekIndex = collection.index(
+                currentIndex,
+                offsetBy: offset,
+                limitedBy: collection.endIndex
+            ),
+            peekIndex < collection.endIndex
+        else { return nil }
+        return collection[peekIndex]
     }
+}
 
-    /// Remove and return the current element.
-    public func removeFirst() -> Element? {
-        defer { skip() }
-        return currentElement
-    }
+// MARK: - Scan
 
-    /// Remove and return `maxLength` number of elements.
-    public func prefix(_ maxLength: Int) -> SubSequence {
+extension CollectionScanner {
+    /// Scan `maxLength` number of elements.
+    public func scan(_ maxLength: Int) -> SubSequence {
         let startIndex = currentIndex
         skip(maxLength)
         return collection[startIndex..<currentIndex]
     }
 
-    /// Remove and return a sequence of elements up until the predicate is false.
-    public func prefix(while predicate: (Element) -> Bool) -> SubSequence {
+    /// Scan elements equal to a collection.
+    public func scan<C>(collection otherCollection: C) -> SubSequence
+    where C: Collection, C.Element == Element {
         let startIndex = currentIndex
-        skip(while: predicate)
+        for otherElement in otherCollection {
+            guard currentElement == otherElement else {
+                currentIndex = startIndex
+                break
+            }
+            skip(1)
+        }
         return collection[startIndex..<currentIndex]
     }
 
-    /// Remove and return a sequence from the current element through `element`.
-    public func prefix(through element: Element) -> SubSequence {
+    /// Scan a single element.
+    public func scan(element: Element) -> SubSequence {
         let startIndex = currentIndex
-        skip(through: element)
+        if currentElement == element {
+            skip(1)
+        }
         return collection[startIndex..<currentIndex]
     }
 
-    /// Remove and return a sequence from the current element up to `element`.
-    public func prefix(upTo element: Element) -> SubSequence {
+    /// Scan elements as long as they are contained in `set`.
+    public func scan<S>(set: S) -> SubSequence
+    where S: SetAlgebra, S.Element == Element {
+        return scan(while: { set.contains($0) })
+    }
+
+    /// Scan all elements up to `element`.
+    public func scan(upTo element: Element) -> SubSequence {
         let startIndex = currentIndex
         skip(upTo: element)
         return collection[startIndex..<currentIndex]
     }
 
-    /// Remove and return a sequence from the current element up to the start of the
-    /// provided collection.
-    public func prefix<OtherCollection>(upToCollection otherCollection: OtherCollection) -> SubSequence
-    where OtherCollection: Collection, OtherCollection.Element == Element {
+    /// Scan all elements up to a matching collection of elements.
+    public func scan<C>(upToCollection otherCollection: C) -> SubSequence
+    where C: Collection, C.Element == Element {
         let startIndex = currentIndex
         guard let firstElement = otherCollection.first
         else { return collection[startIndex..<startIndex] }
-        while !isAtEnd {
-            skip { $0 != firstElement }
+        repeat {
+            skip(upTo: firstElement)
             // Possible match
-            let matchCollection = peek(next: otherCollection.count)
-            guard matchCollection.count == otherCollection.count else {
-                // No match before end
-                currentIndex = collection.endIndex
+            let matchStartIndex = currentIndex
+            if !scan(collection: otherCollection).isEmpty {
+                currentIndex = matchStartIndex
                 break
             }
-            let matchZip = zip(matchCollection, otherCollection)
-            if matchZip.allSatisfy({ $0 == $1 }) {
-                break
-            }
-            skip()
-        }
+            skip(1)
+        } while !isAtEnd
         return collection[startIndex..<currentIndex]
+    }
+
+    /// Scan all elements up to any element contained in `set`.
+    public func scan<S>(upToSet set: S) -> SubSequence
+    where S: SetAlgebra, S.Element == Element {
+        let startIndex = currentIndex
+        skip { !set.contains($0) }
+        return collection[startIndex..<currentIndex]
+    }
+
+    /// Scan elements while `predicate` is true.
+    public func scan(while predicate: (Element) -> Bool) -> SubSequence {
+        let startIndex = currentIndex
+        skip(while: predicate)
+        return collection[startIndex..<currentIndex]
+    }
+}
+
+// MARK: - Skip
+
+extension CollectionScanner {
+    /// Skip `count` elements, limited by the end of the collection.
+    public func skip(_ count: Int) {
+        currentIndex = collection.index(
+            currentIndex,
+            offsetBy: count,
+            limitedBy: collection.endIndex
+        ) ?? collection.endIndex
+    }
+
+    /// Skip an element if `element` matches current element.
+    public func skip(element: Element) {
+        if currentElement == element {
+            skip(1)
+        }
+    }
+
+    /// Skip elements in order and equal to elements in a collection.
+    public func skip<C>(collection otherCollection: C)
+    where C: Collection, C.Element == Element {
+        let startIndex = currentIndex
+        for otherElement in otherCollection {
+            guard let currentElement, currentElement == otherElement else {
+                currentIndex = startIndex
+                return
+            }
+            currentIndex = collection.index(after: currentIndex)
+        }
+    }
+
+    /// Skip elements as long as current element is contained in `set`.
+    public func skip<S>(set: S)
+    where S: SetAlgebra, S.Element == Element {
+        skip { set.contains($0) }
+    }
+
+    /// Skip all elements up to `element`.
+    public func skip(upTo element: Element) {
+        skip { $0 != element }
+    }
+
+    /// Skip elements while `predicate` is true.
+    public func skip(while predicate: (Element) -> Bool) {
+        while let currentElement, predicate(currentElement) {
+            currentIndex = collection.index(after: currentIndex)
+        }
     }
 }

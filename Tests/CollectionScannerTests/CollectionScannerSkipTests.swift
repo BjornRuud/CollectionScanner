@@ -2,41 +2,61 @@ import XCTest
 @testable import CollectionScanner
 
 final class CollectionScannerSkipTests: XCTestCase {
-    func testSkip() throws {
+    func testSkipOne() throws {
         let scanner = CollectionScanner("ab")
-        scanner.skip()
+        scanner.skip(1)
         XCTAssertEqual(scanner.currentElement, "b")
-        scanner.skip()
-        XCTAssertEqual(scanner.currentIndex, scanner.collection.endIndex)
     }
 
-    func testSkipCount() throws {
+    func testSkipTwo() throws {
         let scanner = CollectionScanner("abc")
         scanner.skip(2)
         XCTAssertEqual(scanner.currentElement, "c")
     }
 
-    func testSkipWhile() throws {
+    func testSkipElement() throws {
         let scanner = CollectionScanner("abc")
-        scanner.skip { $0 == "a" || $0 == "b" }
-        XCTAssertEqual(scanner.currentElement, "c")
+        scanner.skip(element: "c")
+        XCTAssertEqual(scanner.currentElement, "a")
+        scanner.skip(element: "a")
+        XCTAssertEqual(scanner.currentElement, "b")
     }
 
     func testSkipCollection() throws {
         let scanner = CollectionScanner("abc")
+        scanner.skip(collection: "bc")
+        XCTAssertEqual(scanner.currentElement, "a")
+        scanner.skip(collection: "ac")
+        XCTAssertEqual(scanner.currentElement, "a")
         scanner.skip(collection: "ab")
         XCTAssertEqual(scanner.currentElement, "c")
     }
 
-    func testSkipThrough() throws {
+    func testSkipSet() throws {
         let scanner = CollectionScanner("abc")
-        scanner.skip(through: "b")
+        let set = Set<Character>("ab")
+        let wrongSet = Set<Character>("bc")
+        scanner.skip(set: wrongSet)
+        XCTAssertEqual(scanner.currentElement, "a")
+        scanner.skip(set: set)
         XCTAssertEqual(scanner.currentElement, "c")
     }
 
-    func testSkipUpTo() throws {
+    func testSkipUpToElement() throws {
         let scanner = CollectionScanner("abc")
         scanner.skip(upTo: "c")
         XCTAssertEqual(scanner.currentElement, "c")
+        scanner.skip(upTo: "!")
+        XCTAssertTrue(scanner.isAtEnd)
+    }
+
+    func testSkipWhile() throws {
+        let scanner = CollectionScanner("abc")
+        scanner.skip { $0 == "!" }
+        XCTAssertEqual(scanner.currentElement, "a")
+        scanner.skip { $0 == "a" || $0 == "b" }
+        XCTAssertEqual(scanner.currentElement, "c")
+        scanner.skip { $0 != "!" }
+        XCTAssertTrue(scanner.isAtEnd)
     }
 }
